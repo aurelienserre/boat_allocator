@@ -6,6 +6,7 @@ algorithm in the right format.
 """
 
 import pandas as pd
+import numpy as np
 
 
 def amilia_participants(file):
@@ -24,17 +25,17 @@ def amilia_participants(file):
     return participants
 
 
-def gform_prefs(file, corrections, config, group="comp"):
+def gform_prefs(file, corrections, gform_cols):
     """Transform output of gform to a usable format.
 
     The goal is to produce a format easily usable by the optimization
     algorithm.
 
     file: csv file resulting form the gform,
-    group: either "comp" or "rec".
+    corrections: dict of {wrong_email: correct_email}
+    gform_cols: columns in the csv file with gform ansers
     """
-    columns = config[group]["gform_cols"]
-    preferences = pd.read_csv(file, skiprows=[0], names=columns)
+    preferences = pd.read_csv(file, skiprows=[0], names=gform_cols)
 
     # make email corrections
     preferences.replace(to_replace=corrections, inplace=True)
@@ -52,12 +53,12 @@ def gform_prefs(file, corrections, config, group="comp"):
     # transform semicolon separated weekdays into one col per day, and 0/1
     # coded preferences, both for first and second choices.
     first_choice = {col: preferences[col].str.get_dummies(sep=";")
-                    for col in config[group]["gform_cols"]
+                    for col in gform_cols
                     if col.startswith('pref_')}
     first_choice = pd.concat(first_choice, names=["time", "day"], axis=1)
 
     second_choice = {col: preferences[col].str.get_dummies(sep=";")
-                     for col in config[group]["gform_cols"]
+                     for col in gform_cols
                      if col.startswith('backup_')}
     second_choice = pd.concat(second_choice, names=["time", "day"], axis=1)
 
@@ -103,3 +104,31 @@ def registration_check(gform, amilia):
     intersection = gform.loc[gform.index.intersection(amilia.index)]
 
     return not_reg, no_gform, intersection
+
+
+def people(file):
+    """Load people list.
+
+    file: file containing the list of people, with their weight class, skill
+    class and group
+    """
+    people = pd.read_excel(file)
+    # drop header rows (at begining of comp, master, rec sections)
+    people = people.loc[people["group"].notna()]
+    # drop column that we don't use
+    people.drop(columns="later on", inplace=True)
+    # consider heavy heavy the same as heavy (changes nothing for boat alloc)
+    people.replace({'weight': {'HH': 'H'}}, inplace=True)
+
+    return people
+
+
+def boats(file):
+    boats = pd.read_excel(file, sep=";", header=[1])
+    boats.drop(columns=["owner"], inplace=True)
+    boats.set_index('name', inplace=True)
+    replacments = {np.nan: 0, 'x': 1}
+    boats.replace({col: replacments for col in ['L', 'M', 'MH', 'H']},
+                  inplace=True)
+
+    return boats
