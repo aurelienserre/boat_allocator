@@ -21,8 +21,8 @@ def gen_utility(prefs):
     prefs: (pd.DataFrame) first and second choices of people for every time
     slot.
     """
-    first = prefs['first']
-    second = prefs['second']
+    first = prefs["first"]
+    second = prefs["second"]
     # empty dataframe for storing the utilities
     utility = pd.DataFrame(index=prefs.index, columns=first.columns)
     # set VALUE_SECOND on second choices
@@ -80,8 +80,7 @@ def people_for_boat_time(people, boats, utility, reverse_match):
     # people likely to row a given boat at a given time
     people_for_boat_time = dict()
     for b in boats.index:
-        skill_mask = pd.Series(
-            data=False, index=people.index)
+        skill_mask = pd.Series(data=False, index=people.index)
         for skill in reverse_match[boats.loc[b]["boat_class"]]:
             skill_mask |= people["skill"] == skill
 
@@ -103,8 +102,12 @@ def people_for_boat_time(people, boats, utility, reverse_match):
 
 
 def define_model(
-        utility, nb_train_asked, boats, boats_for_person, times_for_person,
-        people_for_boat_time
+    utility,
+    nb_train_asked,
+    boats,
+    boats_for_person,
+    times_for_person,
+    people_for_boat_time,
 ):
     # definition of the model
     model = Model("boat_alloc")
@@ -121,10 +124,12 @@ def define_model(
     s = model.addVar(vtype="I", name="min_pref", lb=None)
 
     # setting the objective fucntion
-    total_pref = quicksum(utility.loc[p, t] * variables[(p, b, t)]
-                          for p in people
-                          for b in boats_for_person[p]
-                          for t in times_for_person[p])
+    total_pref = quicksum(
+        utility.loc[p, t] * variables[(p, b, t)]
+        for p in people
+        for b in boats_for_person[p]
+        for t in times_for_person[p]
+    )
     model.setObjective(500 * s + total_pref, "maximize")
 
     # adding the constraints
@@ -148,26 +153,25 @@ def define_model(
 
         # each person can only row one boat at a time
         for t in times_for_person[p]:
-            nb_boats = quicksum(
-                variables[(p, b, t)] for b in boats_for_person[p]
-            )
+            nb_boats = quicksum(variables[(p, b, t)] for b in boats_for_person[p])
             model.addCons(nb_boats <= 1)
 
         # not am1 and am2 in the same day
         # days where "am2" exists (i.e. not Saturday)
         weekdays = utility.columns[
-            utility.columns.get_level_values("time") == 'am2'
+            utility.columns.get_level_values("time") == "am2"
         ].unique("day")
         for day in weekdays:
-            if not np.isnan(utility.loc[p, (day, 'am1')]) and not np.isnan(
-                    utility.loc[p, (day, 'am2')]
+            if not np.isnan(utility.loc[p, (day, "am1")]) and not np.isnan(
+                utility.loc[p, (day, "am2")]
             ):
                 model.addCons(
                     quicksum(
-                        variables[(p, b, (day, 'am1'))]
-                        + variables[(p, b, (day, 'am2'))]
+                        variables[(p, b, (day, "am1"))]
+                        + variables[(p, b, (day, "am2"))]
                         for b in boats_for_person[p]
-                    ) <= 1
+                    )
+                    <= 1
                 )
 
     # for each boat and time, no more than one person
@@ -183,8 +187,7 @@ def define_model(
 
 
 def optimize(
-    model, variables, s, utility, nb_train_asked, boats_for_person,
-    times_for_person
+    model, variables, s, utility, nb_train_asked, boats_for_person, times_for_person
 ):
 
     model.optimize()
@@ -196,10 +199,9 @@ def optimize(
         result.index.rename("people", inplace=True)
 
         fairness = pd.DataFrame(
-            0, index=utility.index,
-            columns=['nb_asked', 'nb_first', 'nb_second']
+            0, index=utility.index, columns=["nb_asked", "nb_first", "nb_second"]
         )
-        fairness['nb_asked'] = nb_train_asked
+        fairness["nb_asked"] = nb_train_asked
 
         for p in utility.index:
             for t in times_for_person[p]:
@@ -216,17 +218,17 @@ def optimize(
                     model.getVal(
                         quicksum(variables[(p, b, t)] for b in boats_for_person[p])
                     ),
-                    1
+                    1,
                 ):
                     if utility.loc[p, t] == VALUE_FIRST:
-                        fairness.loc[p, 'nb_first'] += 1
+                        fairness.loc[p, "nb_first"] += 1
                     elif utility.loc[p, t] == VALUE_SECOND:
-                        fairness.loc[p, 'nb_second'] += 1
+                        fairness.loc[p, "nb_second"] += 1
                     else:
                         raise
 
         fairness["diff"] = (
-            fairness['nb_first'] + fairness['nb_second'] - fairness['nb_asked']
+            fairness["nb_first"] + fairness["nb_second"] - fairness["nb_asked"]
         )
 
         # result.to_excel("results/comp/results_boat.xlsx")

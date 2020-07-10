@@ -22,7 +22,7 @@ def people(file):
     # drop column that we don't use
     people.drop(columns="later on", inplace=True)
     # consider heavy heavy the same as heavy (changes nothing for boat alloc)
-    people.replace({'weight': {'HH': 'H'}}, inplace=True)
+    people.replace({"weight": {"HH": "H"}}, inplace=True)
 
     return people
 
@@ -34,11 +34,16 @@ def amilia_participants(file):
     month (under summer 2020) and so all the sub-programs, and choosing
     "Opérations" > "Exporter les inscriptions par date".
     """
-    used_cols = ["Prénom", "Nom de famille", "Activité",
-                 "Adresse électronique du participant"]
+    used_cols = [
+        "Prénom",
+        "Nom de famille",
+        "Activité",
+        "Adresse électronique du participant",
+    ]
     index_col = "Adresse électronique du participant"
-    participants = pd.read_excel(file, skiprows=[0], header=1,
-                                 usecols=used_cols, index_col=index_col)
+    participants = pd.read_excel(
+        file, skiprows=[0], header=1, usecols=used_cols, index_col=index_col
+    )
 
     return participants
 
@@ -63,41 +68,63 @@ def gform_prefs(file, corrections, gform_cols):
     # original data is a weird one, not the classical "-".
     preferences.date = pd.to_datetime(
         preferences.date.apply(lambda x: x.replace("UTC−4", "-0400")),
-        format="%Y/%m/%d %I:%M:%S %p %z")
+        format="%Y/%m/%d %I:%M:%S %p %z",
+    )
     # only keep latest submission for everyone
-    preferences = preferences.loc[preferences.groupby('email').date.idxmax()]
+    preferences = preferences.loc[preferences.groupby("email").date.idxmax()]
     preferences.set_index("email", inplace=True)
 
     # transform semicolon separated weekdays into one col per day, and 0/1
     # coded preferences, both for first and second choices.
-    first_choice = {col: preferences[col].str.get_dummies(sep=";")
-                    for col in gform_cols
-                    if col.startswith('pref_')}
+    first_choice = {
+        col: preferences[col].str.get_dummies(sep=";")
+        for col in gform_cols
+        if col.startswith("pref_")
+    }
     first_choice = pd.concat(first_choice, names=["time", "day"], axis=1)
 
-    second_choice = {col: preferences[col].str.get_dummies(sep=";")
-                     for col in gform_cols
-                     if col.startswith('backup_')}
+    second_choice = {
+        col: preferences[col].str.get_dummies(sep=";")
+        for col in gform_cols
+        if col.startswith("backup_")
+    }
     second_choice = pd.concat(second_choice, names=["time", "day"], axis=1)
 
     # assemble first and second choices into one dataframe.
-    newprefs = pd.concat([first_choice, second_choice],
-                         keys=['first', 'second'],
-                         names=["pref", "time", "day"], axis=1)
+    newprefs = pd.concat(
+        [first_choice, second_choice],
+        keys=["first", "second"],
+        names=["pref", "time", "day"],
+        axis=1,
+    )
 
     # day before time in hierarchy
     newprefs = newprefs.reorder_levels(["pref", "day", "time"], axis=1)
     # shorten time codes (am1, am2, am), and put weekdays in right order
-    rename_map = {'pref_week_am1': 'am1', 'pref_week_am2': 'am2',
-                  'pref_we': 'am',
-                  'backup_week_am1': 'am1', 'backup_week_am2': 'am2',
-                  'backup_we': 'am',
-                  'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thrusday': 4,
-                  'Friday': 5, 'Saturday': 6}
+    rename_map = {
+        "pref_week_am1": "am1",
+        "pref_week_am2": "am2",
+        "pref_we": "am",
+        "backup_week_am1": "am1",
+        "backup_week_am2": "am2",
+        "backup_we": "am",
+        "Monday": 1,
+        "Tuesday": 2,
+        "Wednesday": 3,
+        "Thrusday": 4,
+        "Friday": 5,
+        "Saturday": 6,
+    }
     newprefs.rename(columns=rename_map, inplace=True)
     newprefs = newprefs.sort_index(axis=1)
-    rename_map = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thrusday',
-                  5: 'Friday', 6: 'Saturday'}
+    rename_map = {
+        1: "Monday",
+        2: "Tuesday",
+        3: "Wednesday",
+        4: "Thrusday",
+        5: "Friday",
+        6: "Saturday",
+    }
     newprefs.rename(columns=rename_map, inplace=True)
 
     return newprefs
@@ -122,7 +149,9 @@ def intersection(people, amilia, gform, exclude):
     isin_amilia = pd.Series(index=amilia.index, data="ok", name="amilia")
     isin_gform = pd.Series(index=gform.index, data="ok", name="gform")
     check = pd.concat(
-        [amilia[["Prénom", "Nom de famille"]], isin_people, isin_amilia, isin_gform], join="outer", axis=1,
+        [amilia[["Prénom", "Nom de famille"]], isin_people, isin_amilia, isin_gform],
+        join="outer",
+        axis=1,
     )
     # only keep people not in exclude list
     check = check.loc[~check.index.isin(exclude)]
@@ -148,10 +177,9 @@ def boats(file):
     """
     boats = pd.read_excel(file, sep=";", header=[1])
     boats.drop(columns=["owner"], inplace=True)
-    boats.set_index('name', inplace=True)
-    replacments = {np.nan: 0, 'x': 1}
-    boats.replace({col: replacments for col in ['L', 'M', 'MH', 'H']},
-                  inplace=True)
+    boats.set_index("name", inplace=True)
+    replacments = {np.nan: 0, "x": 1}
+    boats.replace({col: replacments for col in ["L", "M", "MH", "H"]}, inplace=True)
 
     return boats
 
