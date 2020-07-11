@@ -185,13 +185,13 @@ def boats(file):
 
 
 def boat_skill_map(file):
-    """Load a mapping between boat classes and skills required
+    """Load a mapping between boat classes and skills required for this class.
 
     file: yaml file containing a dict with the mapping {skill: boat_class}
     Returns:
+        boat_for_skill: a dict mapping {skill: boat_class}
+        skill_for_boat: a dict mapping {boat_class: skill}
 
-    boat_for_skill: a dict mapping {skill: boat_class}
-    skill_for_boat: a dict mapping {boat_class: skill}
     """
     boat_for_skill = yaml.safe_load(file.open("r"))
     skill_for_boat = dict()

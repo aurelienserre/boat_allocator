@@ -47,9 +47,8 @@ def boats_for_people(people, boats, match):
     people: list of people with their skills and weight category,
     boats: list of boats with their class and weight category
     Returns:
-
-    boats_for_person: dict with each person as keys, and the set of boats they
-    can row based on their skills and weight class.
+        boats_for_person: dict with each person as keys, and the set of boats
+        they can row based on their skills and weight class.
     """
     boats_for_person = dict()
     for p in people.index:
@@ -68,16 +67,29 @@ def boats_for_people(people, boats, match):
 
 
 def times_for_people(utility):
+    """Return a dict containing for each person, the times it might row.
+
+    Returns:
+        times_for_person: dict of {person: set of times this person could
+        possibly row in the week}.
+
+    """
     times_for_person = dict()
     for p in utility.index:
-        # available times for the person
+        # times that person is available
         times_for_person[p] = set(utility.loc[p][utility.loc[p].notna()].index)
 
     return times_for_person
 
 
 def people_for_boat_time(people, boats, utility, reverse_match):
-    # people likely to row a given boat at a given time
+    """Return a dict of people likely to row a given boat at a given time.
+
+    Returns:
+        people_for_boat_time: dict of {(boat, time): set of people likely to
+        row this boat at this time}
+
+    """
     people_for_boat_time = dict()
     for b in boats.index:
         skill_mask = pd.Series(data=False, index=people.index)
@@ -109,7 +121,7 @@ def define_model(
     times_for_person,
     people_for_boat_time,
 ):
-    # definition of the model
+    """Define the PySCIPOpt model using all the provided information."""
     model = Model("boat_alloc")
 
     people = utility.index
@@ -189,7 +201,7 @@ def define_model(
 def optimize(
     model, variables, s, utility, nb_train_asked, boats_for_person, times_for_person
 ):
-
+    """Solve the optimization problem, and return the result if feasible."""
     model.optimize()
 
     status = model.getStatus()
