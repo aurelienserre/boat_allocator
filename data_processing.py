@@ -10,6 +10,19 @@ import numpy as np
 import yaml
 
 
+days_catdtype = pd.CategoricalDtype(
+    categories=[
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thrusday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ],
+    ordered=True,
+)
+
 def people(file):
     """Load people list.
 
@@ -100,6 +113,11 @@ def gform_prefs(file, corrections, gform_cols):
 
     # day before time in hierarchy
     newprefs = newprefs.reorder_levels(["pref", "day", "time"], axis=1)
+    # set "days" level of columns as CategoricalIndex, so that days are
+    # automatically sorted in the right order
+    days = pd.CategoricalIndex(newprefs.columns.levels[1], dtype=days_catdtype)
+    newprefs.columns.set_levels(days, level="day", inplace=True)
+    newprefs = newprefs.sort_index(axis=1)
     # shorten time codes (am1, am2, am), and put weekdays in right order
     rename_map = {
         "pref_week_am1": "am1",
@@ -108,22 +126,6 @@ def gform_prefs(file, corrections, gform_cols):
         "backup_week_am1": "am1",
         "backup_week_am2": "am2",
         "backup_we": "am",
-        "Monday": 1,
-        "Tuesday": 2,
-        "Wednesday": 3,
-        "Thrusday": 4,
-        "Friday": 5,
-        "Saturday": 6,
-    }
-    newprefs.rename(columns=rename_map, inplace=True)
-    newprefs = newprefs.sort_index(axis=1)
-    rename_map = {
-        1: "Monday",
-        2: "Tuesday",
-        3: "Wednesday",
-        4: "Thrusday",
-        5: "Friday",
-        6: "Saturday",
     }
     newprefs.rename(columns=rename_map, inplace=True)
 
