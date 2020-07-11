@@ -125,37 +125,37 @@ def define_model(
     model = Model("boat_alloc")
 
     people = utility.index
-    # defining varialbes
+    # binary variables coding if person p is rowing boat b at time t
     variables = {}
     for p in people:
         for b in boats_for_person[p]:
             for t in times_for_person[p]:
                 variables[(p, b, t)] = model.addVar(vtype="B")
 
-    # minimal pref score among all people, that we want to maximize
+    # minimal utility value among all people, that we want to maximize
     s = model.addVar(vtype="I", name="min_pref", lb=None)
 
     # setting the objective fucntion
-    total_pref = quicksum(
+    total_utility = quicksum(
         utility.loc[p, t] * variables[(p, b, t)]
         for p in people
         for b in boats_for_person[p]
         for t in times_for_person[p]
     )
-    model.setObjective(500 * s + total_pref, "maximize")
+    model.setObjective(500 * s + total_utility, "maximize")
 
     # adding the constraints
     for p in people:
-        # sum of prefs
-        sum_of_prefs = quicksum(
+        # utility value for person p
+        persons_utility = quicksum(
             utility.loc[p, t] * variables[(p, b, t)]
             for b in boats_for_person[p]
             for t in times_for_person[p]
         )
-        # s = min_{p} sum of prefs
-        model.addCons(s <= sum_of_prefs)
+        # s = min_{p} utility for person p
+        model.addCons(s <= persons_utility)
 
-        # each person trains the number of times they asked
+        # limit the trainings to the number that was asked by the person
         nb_trainings = quicksum(
             variables[(p, b, t)]
             for b in boats_for_person[p]
@@ -187,7 +187,6 @@ def define_model(
                 )
 
     # for each boat and time, no more than one person
-    # for b in set(boats[boats["boat_class"].isin([0, 1, 2])].index):
     for b in boats.index:
         for t in utility.columns:
             nb_people_on_boat_time = quicksum(
@@ -206,12 +205,12 @@ def optimize(
 
     status = model.getStatus()
     if status == "optimal":
-        # generate resulting csv file with boat allocation
+        # generate dataframe containing the results of the boat allocation
         result = pd.DataFrame(columns=utility.columns, index=utility.index)
         result.index.rename("people", inplace=True)
 
         fairness = pd.DataFrame(
-            0, index=utility.index, columns=["nb_asked", "nb_first", "nb_second"]
+            0, index=utility.index, columns=["nb_asked", "nb_first", "nb_second", "diff"]
         )
         fairness["nb_asked"] = nb_train_asked
 
@@ -223,17 +222,15 @@ def optimize(
                     if model.isEQ(model.getVal(variables[(p, b, t)]), 1)
                 }
                 assert len(boat) <= 1
-                if boat:
-                    result.loc[p, t] = boat.pop()
                 # if p is rowing at time t
-                if model.isEQ(
-                    model.getVal(
-                        quicksum(variables[(p, b, t)] for b in boats_for_person[p])
-                    ),
-                    1,
-                ):
+                if boat:
+                    # write the name of the boat allocated in result
+                    result.loc[p, t] = boat.pop()
+
+                    # if t was a first choice
                     if utility.loc[p, t] == VALUE_FIRST:
                         fairness.loc[p, "nb_first"] += 1
+                    # if t was a second choice
                     elif utility.loc[p, t] == VALUE_SECOND:
                         fairness.loc[p, "nb_second"] += 1
                     else:
@@ -242,9 +239,6 @@ def optimize(
         fairness["diff"] = (
             fairness["nb_first"] + fairness["nb_second"] - fairness["nb_asked"]
         )
-
-        # result.to_excel("results/comp/results_boat.xlsx")
-        print("fairness score (0 = optimal) : ", model.getVal(s))
 
         return result, fairness
 
