@@ -23,6 +23,7 @@ days_catdtype = pd.CategoricalDtype(
     ordered=True,
 )
 
+
 def people(file):
     """Load people list.
 
@@ -61,7 +62,7 @@ def amilia_participants(file):
     return participants
 
 
-def gform_prefs(file, corrections, gform_cols):
+def gform_prefs(file, corrections, gform_cols, rename_map):
     """Transform output of gform to a usable format.
 
     The goal is to produce a format easily usable by the optimization
@@ -71,6 +72,12 @@ def gform_prefs(file, corrections, gform_cols):
     corrections: dict of {wrong_email: correct_email}
     gform_cols: columns in the csv file with gform ansers
     """
+    # from nested dict to list of tuples
+    gform_cols = [
+        (lvl_one, lvl_two)
+        for lvl_one, lvl_two_list in gform_cols.items()
+        for lvl_two in lvl_two_list
+    ]
     preferences = pd.read_csv(file, skiprows=[0], names=gform_cols)
 
     # make email corrections
@@ -87,19 +94,17 @@ def gform_prefs(file, corrections, gform_cols):
     preferences = preferences.loc[preferences.groupby("email").date.idxmax()]
     preferences.set_index("email", inplace=True)
 
-    # transform semicolon separated weekdays into one col per day, and 0/1
+    # transform semicolon separated days into one col per day, and 0/1
     # coded preferences, both for first and second choices.
     first_choice = {
-        col: preferences[col].str.get_dummies(sep=";")
-        for col in gform_cols
-        if col.startswith("pref_")
+        col: preferences.pref[col].str.get_dummies(sep=";")
+        for col in preferences.pref.columns
     }
     first_choice = pd.concat(first_choice, names=["time", "day"], axis=1)
 
     second_choice = {
-        col: preferences[col].str.get_dummies(sep=";")
-        for col in gform_cols
-        if col.startswith("backup_")
+        col: preferences.backup[col].str.get_dummies(sep=";")
+        for col in preferences.backup.columns
     }
     second_choice = pd.concat(second_choice, names=["time", "day"], axis=1)
 
@@ -118,15 +123,7 @@ def gform_prefs(file, corrections, gform_cols):
     days = pd.CategoricalIndex(newprefs.columns.levels[1], dtype=days_catdtype)
     newprefs.columns.set_levels(days, level="day", inplace=True)
     newprefs = newprefs.sort_index(axis=1)
-    # shorten time codes (am1, am2, am), and put weekdays in right order
-    rename_map = {
-        "pref_week_am1": "am1",
-        "pref_week_am2": "am2",
-        "pref_we": "am",
-        "backup_week_am1": "am1",
-        "backup_week_am2": "am2",
-        "backup_we": "am",
-    }
+    # use actual names of times slots
     newprefs.rename(columns=rename_map, inplace=True)
 
     return newprefs

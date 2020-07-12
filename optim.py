@@ -120,6 +120,7 @@ def define_model(
     boats_for_person,
     times_for_person,
     people_for_boat_time,
+    mutually_exclusive,
 ):
     """Define the PySCIPOpt model using all the provided information."""
     model = Model("boat_alloc")
@@ -168,23 +169,26 @@ def define_model(
             nb_boats = quicksum(variables[(p, b, t)] for b in boats_for_person[p])
             model.addCons(nb_boats <= 1)
 
-        # not am1 and am2 in the same day
-        # days where "am2" exists (i.e. not Saturday)
-        weekdays = utility.columns[
-            utility.columns.get_level_values("time") == "am2"
-        ].unique("day")
-        for day in weekdays:
-            if not np.isnan(utility.loc[p, (day, "am1")]) and not np.isnan(
-                utility.loc[p, (day, "am2")]
-            ):
-                model.addCons(
-                    quicksum(
-                        variables[(p, b, (day, "am1"))]
-                        + variables[(p, b, (day, "am2"))]
-                        for b in boats_for_person[p]
+        # constraint for mutually exclusive trainings
+        days = utility.columns.unique(level="day")
+        for day in days:
+            # times existing in that day
+            times_in_day = utility[day].columns
+            for t1, t2 in mutually_exclusive:
+                # if day contains t1 and t2, and if person p is available at both t1 and t2
+                if (
+                    t1 in times_in_day
+                    and t2 in times_in_day
+                    and not np.isnan(utility.loc[p, (day, t1)])
+                    and not np.isnan(utility.loc[p, (day, t2)])
+                ):
+                    model.addCons(
+                        quicksum(
+                            variables[(p, b, (day, t1))] + variables[(p, b, (day, t2))]
+                            for b in boats_for_person[p]
+                        )
+                        <= 1
                     )
-                    <= 1
-                )
 
     # for each boat and time, no more than one person
     for b in boats.index:
@@ -210,7 +214,9 @@ def optimize(
         result.index.rename("people", inplace=True)
 
         fairness = pd.DataFrame(
-            0, index=utility.index, columns=["nb_asked", "nb_first", "nb_second", "diff"]
+            0,
+            index=utility.index,
+            columns=["nb_asked", "nb_first", "nb_second", "diff"],
         )
         fairness["nb_asked"] = nb_train_asked
 
