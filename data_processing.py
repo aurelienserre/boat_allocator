@@ -23,6 +23,9 @@ days_catdtype = pd.CategoricalDtype(
     ordered=True,
 )
 
+weight_dtype = pd.CategoricalDtype(categories=["H", "MH", "M", "L"], ordered=True)
+category_dtype = pd.CategoricalDtype(categories=["advanced", "intermediate", "beginner"], ordered=True)
+
 
 def people(file):
     """Load people list.
@@ -37,6 +40,9 @@ def people(file):
     people.drop(columns="later on", inplace=True)
     # consider heavy heavy the same as heavy (changes nothing for boat alloc)
     people.replace({"weight": {"HH": "H"}}, inplace=True)
+    # weight and category as categorical dtype for better sorting
+    people.weight = people.weight.astype(weight_dtype)
+    people.category = people.category.astype(category_dtype)
 
     return people
 
