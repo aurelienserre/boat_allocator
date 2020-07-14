@@ -68,7 +68,7 @@ def amilia_participants(file):
     return participants
 
 
-def gform_prefs(file, corrections, gform_cols, rename_map):
+def gform_prefs(file, corrections, gform_cols, rename_map, limit_date):
     """Transform output of gform to a usable format.
 
     The goal is to produce a format easily usable by the optimization
@@ -96,6 +96,7 @@ def gform_prefs(file, corrections, gform_cols, rename_map):
         preferences.date.apply(lambda x: x.replace("UTC−4", "-0400")),
         format="%Y/%m/%d %I:%M:%S %p %z",
     )
+    preferences = preferences.loc[preferences.date >= limit_date]
     # only keep latest submission for everyone
     preferences = preferences.loc[preferences.groupby("email").date.idxmax()]
     preferences.set_index("email", inplace=True)
@@ -126,7 +127,7 @@ def gform_prefs(file, corrections, gform_cols, rename_map):
     newprefs = newprefs.reorder_levels(["pref", "day", "time"], axis=1)
     # set "days" level of columns as CategoricalIndex, so that days are
     # automatically sorted in the right order
-    days = pd.CategoricalIndex(newprefs.columns.levels[1], dtype=days_catdtype)
+    days = pd.CategoricalIndex(newprefs.columns.unique(level="day"), dtype=days_catdtype)
     newprefs.columns.set_levels(days, level="day", inplace=True)
     newprefs = newprefs.sort_index(axis=1)
     # use actual names of times slots

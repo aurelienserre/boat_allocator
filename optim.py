@@ -12,7 +12,7 @@ from pyscipopt import quicksum
 
 
 VALUE_FIRST = 1
-VALUE_SECOND = -1
+VALUE_SECOND = .1
 
 
 def gen_utility(prefs):
