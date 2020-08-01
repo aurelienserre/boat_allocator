@@ -127,7 +127,7 @@ def gform_prefs(file, corrections, gform_cols, rename_map, limit_date):
     newprefs = newprefs.reorder_levels(["pref", "day", "time"], axis=1)
     # set "days" level of columns as CategoricalIndex, so that days are
     # automatically sorted in the right order
-    days = pd.CategoricalIndex(newprefs.columns.unique(level="day"), dtype=days_catdtype)
+    days = pd.CategoricalIndex(newprefs.columns.levels[1], dtype=days_catdtype)
     newprefs.columns.set_levels(days, level="day", inplace=True)
     newprefs = newprefs.sort_index(axis=1)
     # use actual names of times slots
