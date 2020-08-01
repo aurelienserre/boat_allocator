@@ -1,0 +1,67 @@
+\documentclass[12pt]{extarticle}
+
+\usepackage{geometry}
+\geometry{
+	letterpaper,
+	left=20mm,
+	right=20mm,
+	top=20mm,
+}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\begin{document}
+\section{Parameters}%
+\label{sec:Parameters}
+
+\subsection{Data}
+\label{sub:Data}
+\begin{itemize}
+	\item $P$: set of all persons (rowers),
+	\item $B$: set of all boats,
+	\item $T$: set of all training times of the week (day and time),
+	\item $B_p$: set of boats that person $p$ can row (based on her skill and weight class),
+	\item $T_p$: set of times the person $p$ is likely to row (union of her first and second choices),
+	\item $nb\_asked_p$: number of training person $p$ wants to have in the week (number of first choices),
+	\item $E$: set of sets of exclusive training times. Used for non-compatible training sessions, for examples training times that are directly consecutive,
+	\item $u_{pt}$: utility for person $p$ of rowing at time $t$. Values used are $1$ if first choice, $0.1$ if second choice, not defined if $t$ not in choices of $p$.
+\end{itemize}
+
+\subsection{Variables}%
+\label{sub:Variables}
+\begin{itemize}
+	\item $s \in \mathbb{R}$: minimal utility across all people,
+	\item $x_{pbt} \in \{0, 1\}$: binary variable, $1$ if person $p$ is scheduled to row boat $b$ at time $t$, $0$ otherwise.
+\end{itemize}
+
+
+\section{Model}%
+\label{sec:Model}
+
+
+\begin{align}
+	\max_{x, s} \quad			& \lambda s + \sum_{p \in P} \sum_{b \in B_p} \sum_{t \in T_p} u_{pt} x_{pbt}	& \label{eq:obj}\\
+	\text{subject to:} \qquad	& s \leq \sum_{b \in B_p} \sum_{t \in T_p} u_{pt} x_{pbt} 						& \forall p \in P \label{eq:min-util}\\
+								& \sum_{b \in B_p} \sum_{t \in T_p} x_{pbt} \leq nb\_asked_p					& \forall p \in P \label{eq:training-upper}\\
+								& \sum_{b \in B_p} x_{pbt} \leq 1												& \forall p \in P, t \in T_p \label{eq:only-one-boat}\\
+								& \sum_{b \in B_p} \sum_{t \in E} x_{pbt} \leq 1								& \forall p \in P \label{eq:exclusive-times}\\
+								& \sum_{p \in P(b,t)} x_{pbt} \leq 1											& \forall b \in B, \forall t \in T \label{eq:only-one-person}
+\end{align}
+
+\section{Explainations}%
+\label{sec:Explainations}
+
+This model is run weekly. A few days in advance, rowers submit their schedule preferences via an online form.
+These preferences consist of "first choices", that correspond to when a rowers would ideally want to row, and "second choices", which are backup times at which they would be available, in case it's not possible for them to row one of their "first choice".\\
+
+\noindent More details about the objective function and the constraints:
+\begin{itemize}
+	\item \eqref{eq:obj}: The objective function is made of two components. The first one $\lambda s$ maximizes the lowest utility value that a person gets. The second one maximizes the sum of utilities across all people. The coefficient $\lambda$ should be large enough to ensure that the maximum value of $s$ is reached before optimizing the sum of utilities. This is to ensure fairness, i.e. make sure it's not possible that a small set of people receive a schedule with very low utility value, just to maximize the overall utility. The minimal value of this coefficient can be computed, but I've been using $500$ which I am sure is enough for the size of my problem, and does not hit the CPU time in a significant way,
+	\item \eqref{eq:min-util}: ensure that $s$ is the minimum utility across people,
+	\item \eqref{eq:training-upper}: cap the max number of training at the number of trainings asked for each person. We don't want the utility to be increased by assigning more trainings to someone than they asked,
+	\item \eqref{eq:only-one-boat}: one person can only row one boat per training (otherwise, would increase utility artificially),
+	\item \eqref{eq:exclusive-times}: ensure that we don't assign someone to training that are mutually exclusive (according to $E$),
+	\item \eqref{eq:only-one-person}: each boat can only accommodate one person per training.
+\end{itemize}
+
+\end{document}
